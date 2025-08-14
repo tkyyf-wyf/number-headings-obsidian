@@ -656,6 +656,11 @@ const updateHeadingNumbering = (viewInfo, settings) => {
     }
     const changes = [];
     for (const heading of headings) {
+        // Added:Skip headings without chinese characters (during pinyin input)
+        if (!/[^\x00-\x7F]/.test(heading.heading)) {
+            continue;
+        }
+
         // Update the numbering stack based on the level and previous level
         const level = heading.level;
         // Handle skipped & ignored levels.
@@ -1100,6 +1105,8 @@ class NumberHeadingsPlugin extends obsidian.Plugin {
                 }
             });
             this.addSettingTab(new NumberHeadingsPluginSettingTab(this.app, this));
+            
+            /* This code is commented out, since it is not needed anymore.
             this.registerInterval(window.setInterval(() => {
                 const viewInfo = getViewInfo(this.app);
                 if (viewInfo) {
@@ -1118,6 +1125,28 @@ class NumberHeadingsPlugin extends obsidian.Plugin {
                     }
                 }
             }, 10 * 1000));
+            */
+
+            // ...existing code...
+            // Listen for editor content changes and automatically update heading numbering and table of contents.
+            // This replaces the previous timer-based approach, making numbering more responsive to user input.
+            this.registerEvent(
+                this.app.workspace.on('editor-change', () => {
+                    const viewInfo = getViewInfo(this.app);
+                    if (viewInfo) {
+                        const settings = getFrontMatterSettingsOrAlternative(viewInfo.data, this.settings);
+                        if (settings.off) return;
+                        if (settings.auto) {
+                            updateHeadingNumbering(viewInfo, settings);
+                            setTimeout(() => {
+                                const postNumberingViewInfo = getViewInfo(this.app);
+                                updateTableOfContents(postNumberingViewInfo, settings);
+                            }, 500); // 可以缩短延迟
+                        }
+                    }
+                })
+            );
+            // ...existing code...
         });
     }
     loadSettings() {
