@@ -6,7 +6,7 @@ import { removeHeadingNumbering, updateHeadingNumbering, updateTableOfContents }
 import { NumberingStyle } from './numberingTokens'
 import { DEFAULT_SETTINGS, NumberHeadingsPluginSettings } from './settingsTypes'
 
-class NumberHeadingsPluginSettingTab extends PluginSettingTab {
+class NumberHeadingsPluginSgitettingTab extends PluginSettingTab {
   plugin: NumberHeadingsPlugin
 
   constructor(app: App, plugin: NumberHeadingsPlugin) {
@@ -225,8 +225,27 @@ class NumberHeadingsPluginSettingTab extends PluginSettingTab {
 
 export default class NumberHeadingsPlugin extends Plugin {
   settings!: NumberHeadingsPluginSettings
+  private isTyping = false;
+  private typingTimer: NodeJS.Timeout | null = null;
 
   async onload(): Promise<void> {
+    console.log('Number Headings Plugin: Loading event listeners');
+
+      // 监听编辑器变化
+    this.registerEvent(
+      this.app.workspace.on('editor-change', (editor, view) => {
+        console.log('Editor changed - typing started', { editor, view });
+        this.isTyping = true;
+        if (this.typingTimer) {
+          clearTimeout(this.typingTimer);
+        }
+        this.typingTimer = setTimeout(() => {
+          console.log('5 seconds passed - typing ended', { editor, view });
+          this.isTyping = false;
+        }, 5000);
+      })
+    );
+
     // eslint-disable-next-line no-console
     console.info('Loading Number Headings Plugin, version ' + this.manifest.version)
 
@@ -314,16 +333,18 @@ export default class NumberHeadingsPlugin extends Plugin {
       }
     })
 
-    this.addSettingTab(new NumberHeadingsPluginSettingTab(this.app, this))
+    this.addSettingTab(new NumberHeadingsPluginSgitettingTab(this.app, this))
 
     this.registerInterval(window.setInterval(() => {
+      console.log('Number Headings Plugin: Event listeners registered');
       const viewInfo = getViewInfo(this.app)
       if (viewInfo) {
         const settings = getFrontMatterSettingsOrAlternative(viewInfo.data, this.settings)
 
         if (settings.off) return
 
-        if (settings.auto) {
+        if (settings.auto && !this.isTyping) {
+          console.log('Number Headings Plugin: Auto check interval, isTyping:', this.isTyping);
           updateHeadingNumbering(viewInfo, settings)
           setTimeout(() => {
             // HACK: This must happen after a timeout so that there is time for the editor transaction to complete
